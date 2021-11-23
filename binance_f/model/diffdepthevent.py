@@ -1,11 +1,16 @@
+from decimal import *
+from typing import List
+
 class Order:
 
     def __init__(self):
-        self.price = 0.0
-        self.qty = 0.0
+        self.price = Decimal(0.0)
+        self.qty = Decimal(0.0)
 
 
 class DiffDepthEvent:
+    bids: List[Order]
+    asks: List[Order]
 
     def __init__(self):
         self.eventType = ""
@@ -15,8 +20,8 @@ class DiffDepthEvent:
         self.firstUpdateId = None
         self.finalUpdateId = None
         self.lastUpdateIdInlastStream = 0
-        self.bids = list()
-        self.asks = list()
+        self.bids = None
+        self.asks = None
 
     @staticmethod
     def json_parse(json_data):
@@ -34,8 +39,8 @@ class DiffDepthEvent:
         for item in list_array.get_items():
             order = Order()
             val = item.convert_2_list()
-            order.price = val[0]
-            order.qty = val[1]
+            order.price = Decimal(val[0])
+            order.qty = Decimal(val[1])
             bid_list.append(order)
         order_book.bids = bid_list
 
@@ -44,8 +49,8 @@ class DiffDepthEvent:
         for item in list_array.get_items():
             order = Order()
             val = item.convert_2_list()
-            order.price = val[0]
-            order.qty = val[1]
+            order.price = Decimal(val[0])
+            order.qty = Decimal(val[1])
             ask_list.append(order)
         order_book.asks = ask_list        
 

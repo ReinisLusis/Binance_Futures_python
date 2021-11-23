@@ -14,8 +14,11 @@ from binance_f.exception.binanceapiexception import BinanceApiException
 from binance_f.impl.utils import *
 from binance_f.base.printobject import *
 from binance_f.model.constant import *
+
+from typing import Dict
+
 # Key: ws, Value: connection
-websocket_connection_handler = dict()
+websocket_connection_handler: Dict[websocket.WebSocketApp, 'WebsocketConnection'] = dict()
 
 
 def on_message(ws, message):
@@ -23,16 +26,13 @@ def on_message(ws, message):
     websocket_connection.on_message(message)
     return
 
-
 def on_error(ws, error):
     websocket_connection = websocket_connection_handler[ws]
     websocket_connection.on_failure(error)
 
-
-def on_close(ws):
+def on_close(ws, close_status_code, close_msg):
     websocket_connection = websocket_connection_handler[ws]
-    websocket_connection.on_close()
-
+    websocket_connection.on_ws_close(close_status_code, close_msg)
 
 def on_open(ws):
     websocket_connection = websocket_connection_handler[ws]
@@ -49,7 +49,7 @@ class ConnectionState:
 
 
 def websocket_func(*args):
-    connection_instance = args[0]
+    connection_instance: WebsocketConnection = args[0]
     connection_instance.ws = websocket.WebSocketApp(connection_instance.url,
                                                     on_message=on_message,
                                                     on_error=on_error,
@@ -66,6 +66,7 @@ def websocket_func(*args):
 
 
 class WebsocketConnection:
+    ws: websocket.WebSocketApp
 
     def __init__(self, api_key, secret_key, uri, watch_dog, request):
         self.__thread = None
@@ -112,10 +113,14 @@ class WebsocketConnection:
         self.ws.send(data)
 
     def close(self):
-        self.ws.close()
-        del websocket_connection_handler[self.ws]
+        if self.ws is not None:
+            self.ws.close()
+            del websocket_connection_handler[self.ws]
         self.__watch_dog.on_connection_closed(self)
         self.logger.error("[Sub][" + str(self.id) + "] Closing normally")
+
+    def on_ws_close(self, close_status_code, close_msg):
+        self.logger.info("[Sub][" + str(self.id) + "] WebSocket closing")
 
     def on_open(self, ws):
         self.logger.info("[Sub][" + str(self.id) + "] Connected to server")
@@ -129,13 +134,11 @@ class WebsocketConnection:
 
     def on_error(self, error_message):
         if self.request.error_handler is not None:
-            print('error')
             exception = BinanceApiException(BinanceApiException.SUBSCRIPTION_ERROR, error_message)
             self.request.error_handler(exception)
         self.logger.error("[Sub][" + str(self.id) + "] " + str(error_message))
 
     def on_failure(self, error):
-        print('on_failure')
         self.on_error("Unexpected error: " + str(error))
         self.close_on_error()
 
